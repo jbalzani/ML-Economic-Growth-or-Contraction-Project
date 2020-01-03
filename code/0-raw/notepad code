@@ -1,0 +1,8 @@
+#train knn model on training set with cross validation
+knn_model <- train(, method = "knn", )
+
+#random forests
+rf_model <- randomForest( binary_var ~ ., data = train_set)
+
+#to see how the model varies with a different number of trees
+plot(rf_model)
