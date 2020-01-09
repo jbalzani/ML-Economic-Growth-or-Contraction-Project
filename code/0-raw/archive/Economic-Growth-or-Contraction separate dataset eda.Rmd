@@ -1,0 +1,385 @@
+---
+title: "Economic Growth or Contraction"
+author: "John Balzani"
+date: "1/3/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r load libraries, include=FALSE}
+library(tidyverse)
+library(dynlm)
+library(lmtest)
+library(Metrics)
+library(lubridate)
+library(stargazer)
+library(broom)
+library(readr)
+```
+
+**Executive Summary:**
+
+The Composite Leading Index (CLI) is an index composed of various indicators that are thought to have predictive value for the US economy. The purpose of this report is to see if the CLI can predict the direction of economic growth in the upcoming 3 quarters. In particular, one of the purposes of this research is to explore if these predictions can be made accurately for the 2008 recession beginning in July of 2008 and current post-2008 recession business cycle. The models employed are a logistic regression model, a k-nearest neighbors model, and a random forest model of all 3 lags of the CLI. An ensemble prediction is then made for whether or not there will be economic growth, with a zero representing negative or no economic growth, and a 1 representing economic growth.
+
+Data from 1982 are used to make lags of variables, data from 1983 to April 2008 are used to estimate the models used, and data from July 2008 to July 2019 are used to evaluate the models. The economic growth data consists of quarterly observations of real US GDP (economic) growth from January 1982 to July 2019. The CLI data consists of monthly observations of the Composite Leading Index from June of 1961 to July of 2019. These are time series data.
+
+This project undertook the following key steps. First, the data were cleaned and explored. Second, the data are tested for stationarity, since time series data should be tested for stationarity. Stationarity means that the "statistical properties are constant over time", and this is required to do much statistical analysis (Nau, 2019). Third, the models were created. Fourth, the models were evaluated with accuracy used as the metric to judge model effectiveness. It is found that XXXXX is the best out of these models for predicting economic growth or contraction. This model has an accuracy of XXXX% during the test period, which is quite good. This model outperforms a simple strategy of predicting economic growth for every period, which would give an accuracy of 84.4% for the test period. [ensemble prediction performance]
+
+
+**Methods and Analysis:**
+
+After importing the data, the data was separated into training and test sets. Since this is time series data, the training and test sets cannot be determined randomly. In order to see whether or not economic growth or contraction can be predicted for the current business cycle which began with the 2008 recession, the data for the 2008 recession starting July 2008 and after is used as the test set. 
+
+```{r import gdp data, include=FALSE}
+A191RL1Q225SBEA <- read_csv("C:/Users/John/OneDrive/Documents/Study of Economics/Econometrics/Economic-Growth-or-Contraction-Prediction/data/0-raw/A191RL1Q225SBEA.csv")
+```
+
+```{r import cli data, include=FALSE}
+OECDLOLITOAASTSAM <- read_csv("C:/Users/John/OneDrive/Documents/Study of Economics/Econometrics/Economic-Growth-or-Contraction-Prediction/data/0-raw/OECDLOLITOAASTSAM.csv")
+```
+
+```{r create gdp train and test sets}
+gdp_train <- A191RL1Q225SBEA %>%
+  filter(DATE < '2008-07-01')
+gdp_test <- A191RL1Q225SBEA %>%
+  filter(DATE >= '2008-07-01')
+```
+
+```{r create cli train and test sets}
+cli_train <- OECDLOLITOAASTSAM %>%
+  filter(DATE < "2008-07-01")
+cli_test <- OECDLOLITOAASTSAM %>%
+  filter(DATE >= "2008-07-01")
+```
+
+```{r get qtly CLI data, echo=TRUE}
+#get 1st date of each month
+cli_train_filtered <- cli_train %>% 
+  filter(DATE >= '1982-01-01') %>%
+  mutate(MONTH = month(DATE)) %>% #extract month
+  filter(MONTH %in% c(1, 4, 7, 10))#filter for months with qtly gdp data
+```
+
+```{r get qtly CLI data, echo=TRUE}
+#get 1st date of each month
+cli_test_filtered <- cli_test %>% 
+  mutate(MONTH = month(DATE)) %>% #extract month
+  filter(MONTH %in% c(1, 4, 7, 10))#filter for months with qtly gdp data
+```
+
+
+
+
+
+
+The GDP growth dataset was briefly reviewed for NA values, outliers, and duplicates. It was found that there are no NA data points, as can be seen below. 
+
+```{r check for NAs, echo=TRUE}
+#check for NAs in data
+A191RL1Q225SBEA %>% filter(is.na(DATE))
+A191RL1Q225SBEA %>% filter(is.na(A191RL1Q225SBEA))
+```
+
+After checking for duplicates, it was found that there are no duplicate values, as can be seen below.
+
+```{r check for duplicates, echo=TRUE}
+#check for duplicates
+gdp_duplicates <- A191RL1Q225SBEA[duplicated(A191RL1Q225SBEA), ]
+gdp_duplicates
+```
+
+```{r min max of gdp growth, include=FALSE}
+#calculate min and max of rating
+gdp_min <- min(A191RL1Q225SBEA$A191RL1Q225SBEA)
+gdp_max <- max(A191RL1Q225SBEA$A191RL1Q225SBEA)
+```
+
+The minimum and maximum values of GDP growth were checked in order to see if there are any problematic outliers. The minimum value was `r gdp_min` and the maximum value was `r gdp_max`. These are reasonable values, so I next generate a boxplot to visualize the data.
+
+A boxplot of the GDP growth rates was also generated, in order to better visualize the distribution (FIgure 1). It can be seen that GDP growth is usually between 0 and 5 percent, and occasionally higher or lower.
+
+```{r boxplot gdp growth}
+boxplot(A191RL1Q225SBEA$A191RL1Q225SBEA, main = "Figure 1: Boxplot of GDP Growth")
+```
+
+The CLI data was then examined for NA values, duplicates, and outliers.
+
+```{r check for NAs, echo=TRUE}
+#check for NAs in data
+OECDLOLITOAASTSAM %>% filter(is.na(DATE))
+OECDLOLITOAASTSAM %>% filter(is.na(OECDLOLITOAASTSAM))
+```
+
+After checking for duplicates, it was found that there are no duplicate values, as can be seen below.
+
+```{r check for duplicates, echo=TRUE}
+#check for duplicates
+cli_duplicates <- OECDLOLITOAASTSAM[duplicated(OECDLOLITOAASTSAM), ]
+cli_duplicates
+```
+
+```{r min max of CLI, include=FALSE}
+#calculate min and max of CLI
+cli_min <- min(OECDLOLITOAASTSAM$OECDLOLITOAASTSAM)
+cli_max <- max(OECDLOLITOAASTSAM$OECDLOLITOAASTSAM)
+```
+
+The minimum and maximum values of the Composite Leading Index were checked in order to see if there are any problematic outliers. The minimum value was `r cli_min` and the maximum value was `r cli_max`. These are reasonable values, so I next generate a boxplot to visualize the data.
+
+A boxplot of the CLI was also generated, in order to better visualize the distribution (Figure 2). It can be seen that the CLI is usually around 100, and that there are more very low values (below minimum bar) than very high values (above maximum bar). The fatter tail to the downside can also be seen in a historgram (Figure 3).
+
+```{r boxplot cli}
+boxplot(OECDLOLITOAASTSAM$OECDLOLITOAASTSAM, main = "Figure 2: Boxplot of CLI Data")
+```
+
+```{r hist cli}
+hist(OECDLOLITOAASTSAM$OECDLOLITOAASTSAM, main = "Figure 3: Histogram of CLI Data", xlab = "CLI")
+```
+
+After checking for NAs, duplicates, and outliers, the CLI data is filtered only include the relevant time period, and only those data points that match the data in the real GDP growth dataset is selected. This is done by creating a variable called MONTH that extracts the month of the observation, then filtering for those months for which quarterly GDP data is available, which are months 1, 4, 7, and 10. 
+
+```{r get qtly CLI data, echo=TRUE}
+#get 1st date of each month
+CLI_filtered <- OECDLOLITOAASTSAM %>% 
+  filter(DATE >= '1982-01-01') %>%
+  mutate(MONTH = month(DATE)) %>% #extract month
+  filter(MONTH %in% c(1, 4, 7, 10))#filter for months with qtly gdp data
+```
+
+Finally, the datasets are combined into one dataset. A variable called gdp_impr is created to represent the status of GDP improvement. This is a binary variable equal to 1 if GDP improves in a given period and is equal to 0 if it does not.
+
+```{r combined data}
+#combine datasets
+combined_data <- A191RL1Q225SBEA %>% #start with gdp growth dataset
+  mutate(MONTH = CLI_filtered$MONTH) %>% #add month variable
+  mutate(CLI = CLI_filtered$OECDLOLITOAASTSAM) %>% #add CLI
+  mutate(real_gdp_growth = A191RL1Q225SBEA)  %>% #create col with shorter name
+  
+#create binary variable for economic growth/contraction
+combined_data <- combined_data %>%
+  mutate(gdp_impr = ifelse(real_gdp_growth > 0, 1, 0)) %>% #make gdp_impr variable
+```
+
+```{r create lags of variables}
+mutate(real_gdp_growth_lag = lag(real_gdp_growth),
+         real_gdp_growth_lag2 = lag(real_gdp_growth, 2),
+         real_gdp_growth_lag3 = lag(real_gdp_growth, 3),
+         real_gdp_growth_lag4 = lag(real_gdp_growth, 4)) %>%
+  mutate(CLI_lag = lag(CLI),
+         CLI_lag2 = lag(CLI, 2),
+         CLI_lag3 = lag(CLI, 3),
+         CLI_lag4 = lag(CLI, 4),
+         CLI_lag5 = lag(CLI, 5),
+         CLI_lag6 = lag(CLI, 6),
+         CLI_lag7 = lag(CLI, 7),
+         CLI_lag8 = lag(CLI, 8)) %>%
+  mutate(delta_real_gdp_growth = real_gdp_growth - real_gdp_growth_lag,
+         delta_real_gdp_growth_lag = real_gdp_growth_lag - lag(real_gdp_growth_lag),
+         delta_real_gdp_growth_lag2 = real_gdp_growth_lag2 - lag(real_gdp_growth_lag2), 
+         delta_real_gdp_growth_lag3 = real_gdp_growth_lag3 - lag(real_gdp_growth_lag3),
+         delta_real_gdp_growth_lag4 = real_gdp_growth_lag4 - lag(real_gdp_growth_lag4)) %>%
+  mutate(delta_CLI = CLI - CLI_lag,
+         delta_CLI_lag = CLI_lag - CLI_lag2,
+         delta_CLI_lag2 = CLI_lag2 - CLI_lag3,
+         delta_CLI_lag3 = CLI_lag3 - lag(CLI_lag3),
+         delta_CLI_lag4 = CLI_lag4 - lag(CLI_lag4),
+         delta_CLI_lag5 = CLI_lag5 - lag(CLI_lag5),
+         delta_CLI_lag6 = CLI_lag6 - lag(CLI_lag6),
+         delta_CLI_lag7 = CLI_lag7 - lag(CLI_lag7),
+         delta_CLI_lag8 = CLI_lag8 - lag(CLI_lag8))
+```
+
+
+```{r filter data}
+combined_data_filtered <- combined_data %>% filter(DATE >= "1983-01-01" & DATE < "2008-07-01") #filter to include all lags and up to 2008 recession
+```
+
+Plot of Real GDP Growth and CLI 1983 - July 2008:
+
+```{r plot}
+combined_data_filtered %>% ggplot(aes(x = DATE)) +
+  geom_line(aes(y = CLI, color = "CLI")) +
+  geom_line(aes(y = real_gdp_growth, color = "real_gdp_growth")) +
+  ggtitle("Figure 1: Real GDP Growth and CLI 1983-Apr 2008")
+```
+
+```{r}
+combined_data_filtered_ts <- combined_data_filtered %>% ts()
+```
+
+
+The 3 most recent lagged values of the CLI and the 3 most recent lagged values of real GDP growth are tested. A 5% level of significance is used for all tests throughout the study.
+
+Test for Stationarity - Augmented Dickey-Fuller (ADF) Test for Real GDP Growth:
+
+First an ADF test is performed to test whether or not real GDP growth is stationary. A stationary series provides for a more accurate random forest model, so this testing is necessary since random forest is one of the algorithms tested (Zulkifli, 2019).
+
+Model for ADF test:
+delta_real_gdp_growth = alpha_adf_1 + rho*real_gdp_growth_lag + gamma_adf_1*delta_real_gdp_growth_lag + gamma_adf_2*delta_real_gdp_growth_lag2 + gamma_adf_3*delta_real_gdp_growth_lag3 + epsilon_adf_1
+
+Note: Starting with ADF test for all 4 lags of delta_real_gdp_growth.
+
+ADF test for lags 1-4 of delta_real_gdp_growth:
+
+```{r adf test gdp lag 4}
+reg_gdp_adf_lags1234 <- dynlm(delta_real_gdp_growth~real_gdp_growth_lag + delta_real_gdp_growth_lag + delta_real_gdp_growth_lag2 + delta_real_gdp_growth_lag3 + delta_real_gdp_growth_lag4, data = combined_data_filtered_ts)
+reg_gdp_adf_lags1234summ <- summary(reg_gdp_adf_lags1234)
+reg_gdp_adf_lags1234summ
+```
+
+Conclusion: ADF test should be repeated with lag length of 3, as the absolute value of the t statistic of the last lagged value is less than 1.6.
+Rule of Thumb: Set a maximum value for the lag length, and estimate the test regression with that lag length. If the the absolute value of the last lagged value in the test regression is less than 1.6, then reduce the lag length by one and retest (Ng and Perron “Lag Length Selection and the Construction of Unit Root Tests with Good Size and Power,”
+ECTA, 2001.).
+\newpage
+ADF test with lags 1-3 of delta_real_gdp_growth:
+
+```{r adf test gdp lag 3}
+reg_gdp_adf_lags123 <- dynlm(delta_real_gdp_growth~real_gdp_growth_lag + delta_real_gdp_growth_lag + delta_real_gdp_growth_lag2 + delta_real_gdp_growth_lag3, data = combined_data_filtered_ts)
+reg_gdp_adf_lags123summ <- summary(reg_gdp_adf_lags123)
+reg_gdp_adf_lags123summ
+```
+
+Conclusion: The ADF test should be repeated with lag length 2, as the absolute value of the t statistic of the last lagged value is less than 1.6.
+\newpage
+ADF test with lags 1 and 2 of delta_real_gdp_growth:
+
+```{r adf test gdp lag 2}
+reg_gdp_adf_lags12 <- dynlm(delta_real_gdp_growth~real_gdp_growth_lag + delta_real_gdp_growth_lag + delta_real_gdp_growth_lag2, data = combined_data_filtered_ts)
+reg_gdp_adf_lags12summ <- summary(reg_gdp_adf_lags12)
+reg_gdp_adf_lags12summ
+```
+
+Conclusion: The ADF test should be repeated with lag length 2, as the absolute value of the t statistic of the last lagged value is less than 1.6.
+\newpage
+ADF test with lag 1 of delta_real_gdp_growth:
+
+```{r adf test gdp lag 1}
+reg_gdp_adf_lag1 <- dynlm(delta_real_gdp_growth~real_gdp_growth_lag + delta_real_gdp_growth_lag, data = combined_data_filtered_ts)
+reg_gdp_adf_lag1summ <- summary(reg_gdp_adf_lag1)
+reg_gdp_adf_lag1summ
+```
+
+Conclusion:
+The t value of real_gdp_growth_lag is ```r reg_gdp_adf_lag1summ$coefficients[2, 3]```, which is below the critical value of -2.9, so we reject the null hypothesis of non-stationarity of real GDP growth. Real GDP growth is stationary.
+
+Test for Stationarity - Augmented Dickey-Fuller Test for CLI:
+
+Model for ADF test:
+delta_CLI = alpha_adf_2 + rho1*CLI_lag + beta_adf_1*delta_CLI_lag + beta_adf_2*delta_CLI_lag_2 + beta_adf_3*delta_CLI_lag3 + beta_adf_4*delta_CLI_lag4 + epsilon_adf_2
+
+Note: Starting with ADF test for 4 lags of delta_CLI, since it is most commonly used as a predictor of economic conditions in the following 6-9 months.
+\newpage
+ADF test with lags 1-4 of delta_CLI:
+
+```{r adf test CLI 4 lags}
+reg_CLI_lags1234 <- dynlm(delta_CLI~CLI_lag + delta_CLI_lag + delta_CLI_lag2 + delta_CLI_lag3 + delta_CLI_lag4, data = combined_data_filtered_ts)
+reg_CLI_lags1234summ <- summary(reg_CLI_lags1234)
+reg_CLI_lags1234summ
+```
+
+Conclusion: ADF test should be repeated with larger lag length, as the absolute value of the t statistic of the last lagged value is greater than 1.6.
+Rule of Thumb: Set a maximum value for the lag length, and estimate the test regression with that lag length. If the the absolute value of the last lagged value in the test regression is less than 1.6, then reduce the lag length by one and retest (Ng and Perron “Lag Length Selection and the Construction of Unit Root Tests with Good Size and Power,”
+ECTA, 2001.).
+\newpage
+ADF test with lags 1-8 of delta_CLI:
+
+```{r adf test CLI 8 lags}
+reg_CLI_8lags <- dynlm(delta_CLI~CLI_lag + delta_CLI_lag + delta_CLI_lag2 + delta_CLI_lag3 + delta_CLI_lag4 + delta_CLI_lag5 + delta_CLI_lag6 + delta_CLI_lag7 + delta_CLI_lag8, data = combined_data_filtered_ts)
+reg_CLI_8lagssumm <- summary(reg_CLI_8lags)
+reg_CLI_8lagssumm
+```
+
+
+Conclusion: The ADF test should be repeated with lag length 7, as the absolute value of the t statistic of the last lagged value is less than 1.6.
+\newpage
+ADF test with lags 1-7 of delta_CLI:
+
+```{r adf test CLI 7 lags}
+reg_CLI_7lags <- dynlm(delta_CLI~CLI_lag + delta_CLI_lag + delta_CLI_lag2 + delta_CLI_lag3 + delta_CLI_lag4 + delta_CLI_lag5 + delta_CLI_lag6 + delta_CLI_lag7, data = combined_data_filtered_ts)
+reg_CLI_7lagssumm <- summary(reg_CLI_7lags)
+reg_CLI_7lagssumm
+```
+
+Conclusion: The ADF test should be repeated with lag length 6, as the absolute value of the t statistic of the last lagged value is less than 1.6.
+\newpage
+ADF test with lags 1-6 of delta_CLI:
+
+```{r adf test CLI 6 lags}
+reg_CLI_6lags <- dynlm(delta_CLI~CLI_lag + delta_CLI_lag + delta_CLI_lag2 + delta_CLI_lag3 + delta_CLI_lag4 + delta_CLI_lag5 + delta_CLI_lag6, data = combined_data_filtered_ts)
+reg_CLI_6lagssumm <- summary(reg_CLI_6lags)
+reg_CLI_6lagssumm
+```
+
+Conclusion: The ADF test should be repeated with lag length 5, as the absolute value of the t statistic of the last lagged value is less than 1.6.
+\newpage
+ADF test with lags 1-5 of delta_CLI:
+
+```{r adf test CLI 5 lags}
+reg_CLI_5lags <- dynlm(delta_CLI~CLI_lag + delta_CLI_lag + delta_CLI_lag2 + delta_CLI_lag3 + delta_CLI_lag4 + delta_CLI_lag5, data = combined_data_filtered_ts)
+reg_CLI_5lagssumm <- summary(reg_CLI_5lags)
+reg_CLI_5lagssumm
+```
+
+The t stat of CLI_lag is ```r reg_CLI_5lagssumm$coefficients[2,3]```, which is below the critical value of -2.9, so we reject the null hypothesis of non-stationarity. CLI is stationary.
+
+``` {r}
+logistic_model_lags123 <- glm(formula = gdp_impr~CLI_lag + CLI_lag2 + CLI_lag3, family = binomial(link = "logit"), data = combined_data_filtered)
+```
+
+
+**Results:**
+
+```{r filter data for test set}
+combined_data_eval <- combined_data %>% 
+  filter(DATE > "2008-04-01")
+```
+
+```{r predictions}
+pred_prob_econ_growth <- c(1:nrow(combined_data_eval))
+a <- pred_prob_econ_growth
+
+for (i in 1:nrow(combined_data_eval)) {
+  a[i] <- as.numeric(
+    logit_model_lags123$coefficients[1] +
+      logit_model_lags123$coefficients[2]*combined_data_eval[which(combined_data_eval$DATE == '2008-07-01') + i - 1, 'CLI_lag'] +
+      logit_model_lags123$coefficients[3]*combined_data_eval[which(combined_data_eval$DATE == '2008-07-01') + i - 1, 'CLI_lag2'] +
+      logit_model_lags123$coefficients[4]*combined_data_eval[which(combined_data_eval$DATE == '2008-07-01') + i - 1, 'CLI_lag3']
+  )
+  pred_prob_econ_growth[i] <- exp(a[i])/(1 + exp(a[i]))
+}
+
+
+pred_prob_econ_growth
+```
+
+```{r}
+#sum predictions
+pred_expansion <- ifelse(pred_prob_econ_growth > 0.5, 1, 0)
+```
+
+Plot:
+```{r}
+combined_data_eval <- combined_data_eval %>%
+  mutate(prediction = pred_expansion)
+
+combined_data_eval %>% ggplot(aes(x = DATE)) +
+  geom_point(aes(y = gdp_impr, color = "gdp_impr")) +
+  geom_point(aes(y = prediction, color = "prediction")) +
+  ggtitle("Figure 2: Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
+```
+
+```{r}
+combined_data_eval <- combined_data_eval %>%
+  mutate(mean_eval_gdp_impr = mean(gdp_impr))
+```
+
+**Conclusion:**
+
+A model of rating prediction based on XXXX was developed using the training portion of the  dataset, and thie model was tested on the validation data set. This model was found to have a hit rate of 0.933, 93.3%. This indicates that the model did a good job of predicting whether or not there would be economic growth from July 2008 - July 2019. This is better than a strategy of simply assuming that there will be economic growth in every period, which would yield a hit rate of 84.4%.
+
+While this hit rate is acceptable, there are limitations to this model.  A potential area for future work involves incorporating these features into a model to further reduce RMSE.
+
+**References:**
