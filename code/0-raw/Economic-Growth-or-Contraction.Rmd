@@ -1,7 +1,7 @@
 ---
 title: "Economic Growth or Contraction"
 author: "John Balzani"
-date: "1/3/2020"
+date: "1/13/2020"
 output: pdf_document
 ---
 
@@ -11,14 +11,14 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ```{r load libraries, include=FALSE}
 #load libraries
-if (!require(readr)) install.packages("readr", repos = "http://cran.us.r-project.org")
-if (!require(lubridate)) install.packages("lubridate", repos = "http://cran.us.r-project.org")
-if (!require(dynlm)) install.packages("dynlm", repos = "http://cran.us.r-project.org")
-if (!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-if (!require(Metrics)) install.packages("Metrics", repos = "http://cran.us.r-project.org")
-if (!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
-if (!require(randomForest)) install.packages("randomForest", repos = "http://cran.us.r-project.org")
-if (!require(latticeExtra)) install.packages("latticeExtra", repos = "http://cran.us.r-project.org")
+library(readr)
+library(lubridate)
+library(dynlm)
+library(tidyverse)
+library(Metrics)
+library(caret)
+library(randomForest)
+library(latticeExtra)
 ```
 
 **Executive Summary:**
@@ -135,6 +135,16 @@ combined_data <- A191RL1Q225SBEA %>%    #start with gdp growth dataset
 ```
 
 After creating the combined dataset, the train and test sets are created. Again, 1983 up to July 2008 makes up the training set, and July 2008 and after is the test set. 
+
+Next, a double check that the sample sizes are large enough is taken now that the data is cleaned. The total sample size is 147, and the sample size of the training set is 102. While this is not large, it should be large enough to use the logistic regression, knn algorithm, and random forest algorithm. The learning curve for a knn model was seen to increase slowly over 100 training samples in a genetics study with many features (Shao, Fan, Cheng, 2013). In addition, a general rule-of-thumb is to use at least 10 samples per independent variable (Peduzzi et al, 1996). However, a larger sample size would likely allow better results since periods of contraction may be more or less common in the training set than in the test set, but data was only available from 1982.
+
+```{r sample size probit model}
+#sample size min for probit model
+k <- 2 #number of independent variables
+p <- sum(combined_data_train$gdp_impr == 0)/nrow(combined_data_train)
+min_n <- 10*k/p
+```
+
 
 Next, the real GDP growth and CLI data (training set only) are plotted to see how the variables change over time and the relationship between the two (Figure 4).
 
@@ -378,6 +388,8 @@ The t stat of CLI_lag is `r round(reg_CLI_5lagssumm$coefficients[2,3], 3)`, whic
 
 Model Creation:
 \newline
+
+
 Next I created a logistic regression model for lags 1, 2, and 3 of the CLI and also lags 1, 2, and 3 of GDP growth. However, the algorithm did not converge when lag 2 of GDP growth was included, so this was excluded. Since we will also be obtaining predictions from 2 other algorithms and creating an ensemble prediction, I think the exclusion of this lag 2 variable will still obtain a good prediction.
 
 
