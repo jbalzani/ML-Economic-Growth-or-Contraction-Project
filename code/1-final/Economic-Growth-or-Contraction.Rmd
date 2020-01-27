@@ -37,35 +37,43 @@ After importing the data, the data was separated into training and test sets. Si
 ```{r import gdp data, include=FALSE}
 #import gdp growth data
 download.file("https://raw.githubusercontent.com/jbalzani/edx-Economic-Growth-or-Contraction-Project/master/A191RL1Q225SBEA.csv", "A191RL1Q225SBEA.csv")
-A191RL1Q225SBEA <- read_csv("A191RL1Q225SBEA.csv")
+real_gdp_growth <- read_csv("A191RL1Q225SBEA.csv")
 ```
 
 ```{r import cli data, include=FALSE}
 #import cli data
 download.file("https://raw.githubusercontent.com/jbalzani/edx-Economic-Growth-or-Contraction-Project/master/OECDLOLITOAASTSAM.csv", "OECDLOLITOAASTSAM.csv")
-OECDLOLITOAASTSAM <- read_csv("OECDLOLITOAASTSAM.csv")
+cli <- read_csv("OECDLOLITOAASTSAM.csv")
+```
+
+```{r}
+real_gdp_growth <- real_gdp_growth %>% mutate(real_gdp_growth = A191RL1Q225SBEA)
+```
+
+```{r}
+cli <- cli %>% mutate(cli = OECDLOLITOAASTSAM)
 ```
 
 The GDP growth dataset was briefly reviewed for NA values, outliers, and duplicates. It was found that there are no NA data points, as can be seen below. 
 
 ```{r check for NAs gdp, echo=TRUE}
 #check for NAs in gdp data
-A191RL1Q225SBEA %>% filter(is.na(DATE))
-A191RL1Q225SBEA %>% filter(is.na(A191RL1Q225SBEA))
+real_gdp_growth %>% filter(is.na(DATE))
+real_gdp_growth %>% filter(is.na(real_gdp_growth))
 ```
 
 After checking for duplicates, it was found that there are no duplicate values, as can be seen below.
 
 ```{r check for duplicates gdp, echo=TRUE}
 #check for duplicates gdp
-gdp_duplicates <- A191RL1Q225SBEA[duplicated(A191RL1Q225SBEA), ]
+gdp_duplicates <- real_gdp_growth[duplicated(real_gdp_growth), ]
 gdp_duplicates
 ```
 
 ```{r min max of gdp growth, include=FALSE}
 #calculate min and max of rating
-gdp_min <- min(A191RL1Q225SBEA$A191RL1Q225SBEA)
-gdp_max <- max(A191RL1Q225SBEA$A191RL1Q225SBEA)
+gdp_min <- min(real_gdp_growth$real_gdp_growth)
+gdp_max <- max(real_gdp_growth$real_gdp_growth)
 ```
 
 The minimum and maximum values of GDP growth were checked in order to see if there are any problematic outliers. The minimum value was `r gdp_min` and the maximum value was `r gdp_max`. These are reasonable values, so I next generate a boxplot to visualize the data.
@@ -74,29 +82,29 @@ A boxplot of the GDP growth rates was also generated, in order to better visuali
 
 ```{r boxplot gdp growth}
 #boxplot of gdp growth
-boxplot(A191RL1Q225SBEA$A191RL1Q225SBEA, main = "Figure 1: Boxplot of GDP Growth")
+boxplot(real_gdp_growth$real_gdp_growth, main = "Figure 1: Boxplot of GDP Growth")
 ```
 
 The CLI data was then examined for NA values, duplicates, and outliers.
 
 ```{r check for NAs cli, echo=TRUE}
 #check for NAs in cli data
-OECDLOLITOAASTSAM %>% filter(is.na(DATE))
-OECDLOLITOAASTSAM %>% filter(is.na(OECDLOLITOAASTSAM))
+cli %>% filter(is.na(DATE))
+cli %>% filter(is.na(cli))
 ```
 
 After checking for duplicates, it was found that there are no duplicate values, as can be seen below.
 
 ```{r check for duplicates cli, echo=TRUE}
 #check for duplicates
-cli_duplicates <- OECDLOLITOAASTSAM[duplicated(OECDLOLITOAASTSAM), ]
+cli_duplicates <- cli[duplicated(cli), ]
 cli_duplicates
 ```
 
 ```{r min max of CLI, include=FALSE}
 #calculate min and max of CLI
-cli_min <- min(OECDLOLITOAASTSAM$OECDLOLITOAASTSAM)
-cli_max <- max(OECDLOLITOAASTSAM$OECDLOLITOAASTSAM)
+cli_min <- min(cli$cli)
+cli_max <- max(cli$cli)
 ```
 
 The minimum and maximum values of the Composite Leading Index were checked in order to see if there are any problematic outliers. The minimum value was `r round(cli_min, 3)` and the maximum value was `r round(cli_max, 3)`. These are reasonable values, so I next generate a boxplot to visualize the data.
@@ -105,19 +113,19 @@ A boxplot of the CLI was also generated, in order to better visualize the distri
 
 ```{r boxplot cli}
 #boxplot of cli
-boxplot(OECDLOLITOAASTSAM$OECDLOLITOAASTSAM, main = "Figure 2: Boxplot of CLI Data")
+boxplot(cli$cli, main = "Figure 2: Boxplot of CLI Data")
 ```
 
 ```{r hist cli}
 #histogram of cli
-hist(OECDLOLITOAASTSAM$OECDLOLITOAASTSAM, main = "Figure 3: Histogram of CLI Data", xlab = "CLI")
+hist(cli$cli, main = "Figure 3: Histogram of CLI Data", xlab = "CLI")
 ```
 
 After checking for NAs, duplicates, and outliers, the CLI data is filtered to only include the relevant time period, and only those data points that match the data in the real GDP growth dataset are selected. This is done by creating a variable called MONTH that extracts the month of the observation, then filtering for those months for which quarterly GDP data is available, which are months 1, 4, 7, and 10. 
 
 ```{r get qtly CLI data, echo=TRUE}
 #get only the months that have qtly gdp data
-CLI_filtered <- OECDLOLITOAASTSAM %>% 
+CLI_filtered <- cli %>% 
   filter(DATE >= '1982-01-01') %>%
   mutate(MONTH = month(DATE)) %>% #extract month
   filter(MONTH %in% c(1, 4, 7, 10))#filter for months with qtly gdp data
@@ -127,10 +135,10 @@ Finally, the datasets are combined into one dataset. A variable called gdp_impr 
 
 ```{r combined data}
 #combine datasets
-combined_data <- A191RL1Q225SBEA %>%    #start with gdp growth dataset
+combined_data <- real_gdp_growth %>%    #start with gdp growth dataset
   mutate(MONTH = CLI_filtered$MONTH) %>%    #add month variable
-  mutate(CLI = CLI_filtered$OECDLOLITOAASTSAM) %>%    #add CLI variable
-  mutate(real_gdp_growth = A191RL1Q225SBEA) %>%    #create col with shorter name
+  mutate(CLI = CLI_filtered$cli) %>%    #add CLI variable
+  mutate(real_gdp_growth = real_gdp_growth) %>%    #create col with shorter name
   mutate(gdp_impr = factor(ifelse(real_gdp_growth > 0, 1, 0)))   #create y/n dependent var.
 ```
 
@@ -138,20 +146,19 @@ After creating the combined dataset, the train and test sets are created. Again,
 
 Next, a double check that the sample sizes are large enough is taken now that the data is cleaned. The total sample size is 147, and the sample size of the training set is 102. While this is not large, it should be large enough to use the logistic regression, knn algorithm, and random forest algorithm. The learning curve for a knn model was seen to increase slowly over 100 training samples in a genetics study with many features (Shao, Fan, Cheng, 2013). In addition, a general rule-of-thumb is to use at least 10 samples per independent variable (Peduzzi et al, 1996). However, a larger sample size would likely allow better results since periods of contraction may be more or less common in the training set than in the test set, but data was only available from 1982.
 
-```{r sample size probit model}
-#sample size min for probit model
-k <- 2 #number of independent variables
-p <- sum(combined_data_train$gdp_impr == 0)/nrow(combined_data_train)
-min_n <- 10*k/p
-```
-
-
 Next, the real GDP growth and CLI data (training set only) are plotted to see how the variables change over time and the relationship between the two (Figure 4).
 
 ```{r filter data}
 #create train and test data
 combined_data_train <- combined_data %>% filter(DATE >= "1983-01-01" & DATE < "2008-07-01") 
 combined_data_test <- combined_data %>% filter(DATE >= "2008-07-01")
+```
+
+```{r sample size probit model}
+#sample size min for probit model
+k <- 2 #number of independent variables
+p <- sum(combined_data_train$gdp_impr == 0)/nrow(combined_data_train)
+min_n <- 10*k/p
 ```
 
 ```{r plot}
