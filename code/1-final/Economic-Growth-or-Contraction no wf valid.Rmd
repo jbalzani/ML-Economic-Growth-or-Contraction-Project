@@ -9,6 +9,20 @@ output: pdf_document
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
+```{r install packages}
+# install.packages("glmnet")
+# install.packages("readr")
+# install.packages("lubridate")
+# install.packages("dynlm")
+# install.packages("tidyverse")
+# install.packages("Metrics")
+# install.packages("caret")
+# install.packages("randomForest")
+# install.packages("latticeExtra")
+# install.packages("forecast")
+# install.packages("e1071")
+```
+
 ```{r load libraries, include=FALSE}
 #load libraries
 library(glmnet)
@@ -20,6 +34,8 @@ library(Metrics)
 library(caret)
 library(randomForest)
 library(latticeExtra)
+library(forecast)
+library(e1071)
 ```
 
 **Executive Summary:**
@@ -37,13 +53,13 @@ After importing the data, the data was separated into training and test sets. Si
 
 ```{r import gdp data, include=FALSE}
 #import gdp growth data
-download.file("https://raw.githubusercontent.com/jbalzani/edx-Economic-Growth-or-Contraction-Project/master/data/0-raw/A191RL1Q225SBEA.csv", "A191RL1Q225SBEA.csv")
+download.file("https://raw.githubusercontent.com/jbalzani/ML-Economic-Growth-or-Contraction-Project/master/data/0-raw/A191RL1Q225SBEA.csv", "A191RL1Q225SBEA.csv")
 real_gdp_growth <- read_csv("A191RL1Q225SBEA.csv")
 ```
 
 ```{r import cli data, include=FALSE}
 #import cli data
-download.file("https://raw.githubusercontent.com/jbalzani/edx-Economic-Growth-or-Contraction-Project/master/data/0-raw/OECDLOLITOAASTSAM.csv", "OECDLOLITOAASTSAM.csv")
+download.file("https://raw.githubusercontent.com/jbalzani/ML-Economic-Growth-or-Contraction-Project/master/data/0-raw/OECDLOLITOAASTSAM.csv", "OECDLOLITOAASTSAM.csv")
 cli <- read_csv("OECDLOLITOAASTSAM.csv")
 ```
 
@@ -460,7 +476,6 @@ combined_data_train %>% ggplot(aes(x = DATE, y = CLI)) +
 ```
 
 ```{r monthly seasonality plot}
-library(forecast)
 ts_cli <- ts(combined_data_train$CLI, 
              start = min(year(combined_data_train$DATE)),
               end = max(year(combined_data_train$DATE)),
@@ -534,28 +549,28 @@ mean(y_hat_reglogit == combined_data_test$gdp_impr)
 ```
 
 ```{r wf validation reg logit}
-small_data <- combined_data %>%
- select(real_gdp_growth_lag_stnd,
-       real_gdp_growth_lag2_stnd, 
-       real_gdp_growth_lag3_stnd,
-       CLI_lag_stnd, 
-       CLI_lag2_stnd, 
-       CLI_lag3_stnd,
-       gdp_impr)  #predictors
-x <- model.matrix(gdp_impr ~ ., small_data)[, -1]
-y <- ifelse(combined_data$gdp_impr == "1", 1, 0) #outcome
-
-p_hat_reglogit_wf <- rep(NA, nrow(combined_data_test))
-set.seed(1)
-for (i in 1:nrow(combined_data_test)) {
-  xtrain <- model.matrix(gdp_impr ~ ., small_data[1:(106 + i - 1), ])[, -1]
-  ytrain <- y[4:(106 + i - 1)]
-  xtest <- model.matrix(gdp_impr ~ ., small_data[106 + i, ])[, -1]
-  model <- glmnet(xtrain, ytrain, family = "binomial", alpha = 0, lambda = 1)
-  p_hat_reglogit_wf[i] <- predict(model, newx = xtest, type = "response")
-}
-
-y_hat_reglogit_wf <- ifelse(p_hat_reglogit_wf > 0.5, 1, 0)
+# small_data <- combined_data %>%
+#  select(real_gdp_growth_lag_stnd,
+#        real_gdp_growth_lag2_stnd, 
+#        real_gdp_growth_lag3_stnd,
+#        CLI_lag_stnd, 
+#        CLI_lag2_stnd, 
+#        CLI_lag3_stnd,
+#        gdp_impr)  #predictors
+# x <- model.matrix(gdp_impr ~ ., small_data)[, -1]
+# y <- ifelse(combined_data$gdp_impr == "1", 1, 0) #outcome
+# 
+# p_hat_reglogit_wf <- rep(NA, nrow(combined_data_test))
+# set.seed(1)
+# for (i in 1:nrow(combined_data_test)) {
+#   xtrain <- model.matrix(gdp_impr ~ ., small_data[1:(106 + i - 1), ])[, -1]
+#   ytrain <- y[4:(106 + i - 1)]
+#   xtest <- model.matrix(gdp_impr ~ ., small_data[106 + i, ])[, -1]
+#   model <- glmnet(xtrain, ytrain, family = "binomial", alpha = 0, lambda = 1)
+#   p_hat_reglogit_wf[i] <- predict(model, newx = xtest, type = "response")
+# }
+# 
+# y_hat_reglogit_wf <- ifelse(p_hat_reglogit_wf > 0.5, 1, 0)
 ```
 
 
