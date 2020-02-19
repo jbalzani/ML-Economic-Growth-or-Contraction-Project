@@ -37,13 +37,13 @@ After importing the data, the data was separated into training and test sets. Si
 
 ```{r import gdp data, include=FALSE}
 #import gdp growth data
-download.file("https://raw.githubusercontent.com/jbalzani/edx-Economic-Growth-or-Contraction-Project/master/A191RL1Q225SBEA.csv", "A191RL1Q225SBEA.csv")
+download.file("https://raw.githubusercontent.com/jbalzani/edx-Economic-Growth-or-Contraction-Project/master/data/0-raw/A191RL1Q225SBEA.csv", "A191RL1Q225SBEA.csv")
 real_gdp_growth <- read_csv("A191RL1Q225SBEA.csv")
 ```
 
 ```{r import cli data, include=FALSE}
 #import cli data
-download.file("https://raw.githubusercontent.com/jbalzani/edx-Economic-Growth-or-Contraction-Project/master/OECDLOLITOAASTSAM.csv", "OECDLOLITOAASTSAM.csv")
+download.file("https://raw.githubusercontent.com/jbalzani/edx-Economic-Growth-or-Contraction-Project/master/data/0-raw/OECDLOLITOAASTSAM.csv", "OECDLOLITOAASTSAM.csv")
 cli <- read_csv("OECDLOLITOAASTSAM.csv")
 ```
 
@@ -368,7 +368,6 @@ combined_data <- combined_data %>%
          delta_CLI_lag8 = CLI_lag8 - lag(CLI_lag8))
   
 #filter to include all lags and up to 2008 recession
-combined_data <- combined_data %>% filter(DATE >= "1983-01-01")
 combined_data_train <- combined_data %>% filter(DATE >= "1983-01-01" & DATE < "2008-07-01") 
 combined_data_test <- combined_data %>% filter(DATE >= "2008-07-01")
 
@@ -475,9 +474,9 @@ Model Creation:
 First, I created a logistic regression model for lags 1, 2, and 3 of the CLI and also lags 1, 2, and 3 of GDP growth. Although the PACF of lag 2 of real GDP growth was not significant, it is reasonable based on economic theory that the economic growth 3 quarters in the past may affect the present value. However, the algorithm did not converge when lag 2 of GDP growth was included, so this was excluded. Since we will also be obtaining predictions from 2 other algorithms and creating an ensemble prediction, I think the exclusion of this lag 2 variable will still obtain a good prediction.
 
 
-```{r logit model - obsolete}
+```{r logit model}
 #logistic regression model
-# logistic_model_all <- glm(formula = gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + real_gdp_growth_lag + real_gdp_growth_lag3, family = binomial(link = "logit"), data = combined_data_train, maxit = 1000000)
+logistic_model_all <- glm(formula = gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + real_gdp_growth_lag + real_gdp_growth_lag3, family = binomial(link = "logit"), data = combined_data_train, maxit = 1000000)
 ```
 
 ```{r logit model wf validation}
@@ -510,10 +509,12 @@ y <- ifelse(combined_data_train$gdp_impr == "1", 1, 0) #outcome
 ```
 
 ```{r reg logit no wf validation}
-#to be used for cross valid
-#k <- 0
-#to be used for testing dfferent lambdas
-#lambda <- seq(1, 50, 1)
+k <- 0
+preds <- rep(NA, nrow(combined_data_train) - k - 1)
+accuracy <- rep(NA, nrow(combined_data_train) - k - 1)
+preds1 <- preds
+accuracy1 <- accuracy
+lambda <- seq(1, 50, 1)
 
 #create regularized logistic regression - no cross validation, using lambda of 1
 reglogit_model <- glmnet(x, y, alpha = 0, lambda = 1, family = "binomial")
@@ -532,33 +533,33 @@ y_hat_reglogit <- ifelse(p_hat_reglogit > 0.5, 1, 0)
 mean(y_hat_reglogit == combined_data_test$gdp_impr)
 ```
 
-```{r wf validation reg logit - not functional}
-# small_data <- combined_data %>%
-#  select(real_gdp_growth_lag_stnd,
-#        real_gdp_growth_lag2_stnd, 
-#        real_gdp_growth_lag3_stnd,
-#        CLI_lag_stnd, 
-#        CLI_lag2_stnd, 
-#        CLI_lag3_stnd,
-#        gdp_impr)  #predictors
-# x <- model.matrix(gdp_impr ~ ., small_data)[, -1]
-# y <- ifelse(combined_data$gdp_impr == "1", 1, 0) #outcome
-# 
-# p_hat_reglogit_wf <- rep(NA, nrow(combined_data_test))
-# set.seed(1)
-# for (i in 1:nrow(combined_data_test)) {
-#   xtrain <- model.matrix(gdp_impr ~ ., small_data[1:(106 + i - 1), ])[, -1]
-#   ytrain <- y[1:(106 + i - 1)]
-#   xtest <- model.matrix(gdp_impr ~ ., small_data[106 + i, ])[, -1]
-#   model <- glmnet(xtrain, ytrain, family = "binomial", alpha = 0, lambda = 1)
-#   p_hat_reglogit_wf[i] <- predict(model, newx = xtest, type = "response")
-# }
-# 
-# y_hat_reglogit_wf <- ifelse(p_hat_reglogit_wf > 0.5, 1, 0)
+```{r wf validation reg logit}
+small_data <- combined_data %>%
+ select(real_gdp_growth_lag_stnd,
+       real_gdp_growth_lag2_stnd, 
+       real_gdp_growth_lag3_stnd,
+       CLI_lag_stnd, 
+       CLI_lag2_stnd, 
+       CLI_lag3_stnd,
+       gdp_impr)  #predictors
+x <- model.matrix(gdp_impr ~ ., small_data)[, -1]
+y <- ifelse(combined_data$gdp_impr == "1", 1, 0) #outcome
+
+p_hat_reglogit_wf <- rep(NA, nrow(combined_data_test))
+set.seed(1)
+for (i in 1:nrow(combined_data_test)) {
+  xtrain <- model.matrix(gdp_impr ~ ., small_data[1:(106 + i - 1), ])[, -1]
+  ytrain <- y[4:(106 + i - 1)]
+  xtest <- model.matrix(gdp_impr ~ ., small_data[106 + i, ])[, -1]
+  model <- glmnet(xtrain, ytrain, family = "binomial", alpha = 0, lambda = 1)
+  p_hat_reglogit_wf[i] <- predict(model, newx = xtest, type = "response")
+}
+
+y_hat_reglogit_wf <- ifelse(p_hat_reglogit_wf > 0.5, 1, 0)
 ```
 
 
-```{r cross validation regularized logit model - not functional}
+```{r cross validation regularized logit model}
 # #test glmnet function with basic wf validation - creates a regularized logistic regression model using a walk forward cross validation process but doesn't optimize lambda
 # set.seed(1)
 # for (i in 1:(nrow(combined_data_train) - k)) {
@@ -601,9 +602,7 @@ k <- seq(3, 25, 1)
 
 #calculate accuracies for different k values
 train_accuracy <- sapply(k, function(ks) {
-    knn_model <- knn3(gdp_impr ~ CLI_lag_nml + CLI_lag2_nml + CLI_lag3_nml +
-                        real_gdp_growth_lag_nml + real_gdp_growth_lag2_nml +
-                        real_gdp_growth_lag3_nml, data = combined_data_train, k = ks)
+  knn_model <- knn3(gdp_impr ~ CLI_lag_nml + CLI_lag2_nml + CLI_lag3_nml + real_gdp_growth_lag_nml + real_gdp_growth_lag2_nml + real_gdp_growth_lag3_nml, data = combined_data_train, k = ks)
     mean(knn_model$learn$y == combined_data_train$gdp_impr)
 })
 
@@ -611,22 +610,6 @@ best_k <- k[which.max(train_accuracy)]
 
 #knn model for optimal k
 knn_model <- knn3(gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + real_gdp_growth_lag + real_gdp_growth_lag2 + real_gdp_growth_lag3, data = combined_data_train, k = best_k)
-```
-
-```{r knn wf valid}
-#wf valid
-set.seed(1)
-y_hat_knn_wf <- rep(NA, nrow(combined_data_test))
-for (i in 1:nrow(combined_data_test)) {
-    train_window <- combined_data[1:(106 + i - 1), ]
-    test_window <- combined_data[106 + i, ]
-    knn_model <- knn3(gdp_impr ~ CLI_lag_nml + CLI_lag2_nml + CLI_lag3_nml +
-                        real_gdp_growth_lag_nml + real_gdp_growth_lag2_nml +
-                        real_gdp_growth_lag3_nml, data = train_window)
-    y_hat_knn_wf[i] <- predict(knn_model, test_window, type = "class")
-}
-#I get an error about missing values, but there are no NAs and no issue with for loop i values, I can run the below line to eliminate the error and move forward
-y_hat_knn_wf <- ifelse(y_hat_knn_wf == 2, 1 , 0)
 ```
 
 ```{r make random forest model}
@@ -652,23 +635,9 @@ accuracy <- sapply(m, function(m) {
 best_m <- m[which.max(accuracy)]
 
 #rf model with optimal mtry parameter
-rf_model <- randomForest(gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + real_gdp_growth_lag + real_gdp_growth_lag2 + real_gdp_growth_lag3, data = combined_data_train, mtry = 1, ntree = 100)
+rf_model <- randomForest(gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + real_gdp_growth_lag + real_gdp_growth_lag2 + real_gdp_growth_lag3, data = combined_data_train, mtry = 1, ntree = 25)
 ```
 
-```{r rf wf valid - not functional}
-# set.seed(1)
-# y_hat_rf_wf <- rep(NA, nrow(combined_data_test))
-# for (i in 1:nrow(combined_data_test)) {
-#   train_window <- combined_data[1:(106 + i - 1), ]
-#   test_window <- combined_data[1:(106 + i), ]
-#   model <- randomForest(gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + real_gdp_growth_lag +
-#                           real_gdp_growth_lag2 + real_gdp_growth_lag3, 
-#                         data = train_window, mtry = 1, ntree = 100)
-#   y_hat_rf_wf[i] <- predict(model, test_window)
-# }
-# 
-# mean(y_hat_rf_wf == combined_data_test$gdp_impr)
-```
 
 **Results:**
 After testing the performance against the test set for each model, we can see that logistic regression is the best-performing model, with an accuracy of 93.3% and a F1 score of 0.727. This model had perfect specificity, while having the best sensitivity at 0.57, with the positive class being a "0", or economic contraction for all models.
@@ -677,28 +646,26 @@ The second-best performing models were the ensemble prediction and the random fo
 
 The knn model was the worst-performing model, with an accuracy of 82.2% and a F1 score of 0. This model had good specificity (.947) but a sensitivity of 0, so again there is room for improvement.
 
-```{r logit model test set predictions - obsolete}
-# #logit model test set predictions
-# #predicted economic growth probabilities on test set
-# p_hat_logistic_all <- predict(logistic_model_all, newdata = combined_data_test, type = "response")
-# #test set predictions
-# y_hat_logistic_all <- ifelse(p_hat_logistic_all > 0.5, 1, 0)
+```{r logit model test set predictions}
+#logit model test set predictions
+#predicted economic growth probabilities on test set
+p_hat_logistic_all <- predict(logistic_model_all, newdata = combined_data_test, type = "response")
+#test set predictions
+y_hat_logistic_all <- ifelse(p_hat_logistic_all > 0.5, 1, 0)
 ```
 
 
 ```{r knn model test set predictions}
 #test to see if any of the normalized data points are outside of 0-1 range
 combined_data_test %>%  filter(real_gdp_growth_lag_nml > 1 | real_gdp_growth_lag_nml < 0 |
-        real_gdp_growth_lag2_nml > 1 | real_gdp_growth_lag2_nml < 0 |
-          real_gdp_growth_lag3_nml > 1 | real_gdp_growth_lag3_nml < 0 |
+        real_gdp_growth_lag2_nml > 1 | real_gdp_growth_lag2_nml < 0 | real_gdp_growth_lag3_nml > 1 | real_gdp_growth_lag3_nml < 0 |
           CLI_lag_nml > 1 | CLI_lag_nml < 0 |
           CLI_lag2_nml > 1 | CLI_lag2_nml < 0 |
           CLI_lag3_nml > 1 | CLI_lag3_nml < 0)
 
-#commented out since using the wf valid predictions - obsolete
-# #knn model test set predictions
-# combined_data_test$gdp_impr <- as.factor(combined_data_test$gdp_impr)
-# y_hat_knn <- predict(knn_model, newdata = combined_data_test, type = "class")
+#knn model test set predictions
+combined_data_test$gdp_impr <- as.factor(combined_data_test$gdp_impr)
+y_hat_knn <- predict(knn_model, newdata = combined_data_test, type = "class")
 ```
 
 ```{r rf model test set predictions}
@@ -708,9 +675,9 @@ y_hat_rf_optimized <- predict(rf_model, newdata = combined_data_test)
 
 ```{r ensemble predictions}
 #ensemble predictions
-predictions_tbl <- data.frame(logit = as.numeric(y_hat_logistic_wf),
+predictions_tbl <- data.frame(logit = as.numeric(y_hat_logistic_all),
                               reg_logit = as.numeric(y_hat_reglogit),
-                              knn = as.numeric(y_hat_knn_wf),
+                              knn = as.numeric(y_hat_knn),
                               rf = as.numeric(y_hat_rf_optimized))
 
 #map factor values to numeric values
@@ -736,15 +703,15 @@ Below are shown the confusion matrices for the models.
 Logistic Regression model:
 ```{r confusion matrix logit model}
 #confusion matrix logistic model
-confusionMatrix(factor(y_hat_logistic_wf), reference = factor(combined_data_test$gdp_impr))
+confusionMatrix(factor(y_hat_logistic_all), reference = factor(combined_data_test$gdp_impr))
 #calculate f1 score
-f1_logit <- F_meas(factor(y_hat_logistic_wf), factor(combined_data_test$gdp_impr))
+f1_logit <- F_meas(factor(y_hat_logistic_all), factor(combined_data_test$gdp_impr))
 ```
 \newpage
 KNN Model: 
 ```{r confusion matrix knn model}
 #confusion matrix knn model
-confusionMatrix(factor(y_hat_knn_wf), reference = factor(combined_data_test$gdp_impr))
+confusionMatrix(factor(y_hat_knn), reference = factor(combined_data_test$gdp_impr))
 #calculate f1 score - code won't run since score is 0, because no correct positive predictions
 #f1_knn <- F_meas(factor(y_hat_knn), factor(combined_data_test$gdp_impr))
 ```
@@ -772,9 +739,9 @@ Logistic Regression (Figure 7):
 ```{r plot logistic}
 #add predictions to test set
 combined_data_test <- combined_data_test %>%
-  mutate(logit = factor(y_hat_logistic_wf),
+  mutate(logit = factor(y_hat_logistic_all),
          reg_logit = factor(y_hat_reglogit),
-        knn = factor(y_hat_knn_wf),
+        knn = y_hat_knn,
         rf = y_hat_rf_optimized,
         ensemble = factor(y_hat_ensemble))
 
@@ -792,6 +759,9 @@ combined_data_test %>% ggplot(aes(x = DATE)) +
   ggtitle("Figure 8: Regularized Logit Model Predictions vs. Real Economic Outcomes", 
           subtitle = "Red Indicates a Miss")
 ```
+
+
+
 \newpage
 KNN Model (Figure 8):
 \newline
