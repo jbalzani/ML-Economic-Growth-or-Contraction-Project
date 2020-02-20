@@ -1,7 +1,7 @@
 ---
 title: "Economic Growth or Contraction"
 author: "John Balzani"
-date: "1/27/2020"
+date: "2/19/2020"
 output: pdf_document
 ---
 
@@ -42,9 +42,9 @@ library(e1071)
 
 The amplitude-adjusted OECD Composite Leading Indicator (CLI) for the United States is an index composed of various indicators that are thought to have predictive value for the US economy over the following 6-9 months, with higher values of the index corresponding to better economic outcomes (OECD, 2019). The purpose of this report is to see if the CLI can predict the direction of economic growth in a given quarter for the upcoming 3 quarters, with predictive value above the values of real GDP growth itself. In particular, one of the purposes of this research is to explore if these predictions can be made accurately for the 2008 recession beginning in July of 2008 and for the and current post-2008 recession business cycle. The models employed are a logistic regression model, a k-nearest neighbors model, and a random forest model. An ensemble prediction is then made for whether or not there will be economic growth, with a zero representing negative or no economic growth, and a 1 representing economic growth.
 
-Data from 1982 are used to make lags of variables and the first differences of the variables, data from 1983 to April 2008 are used to estimate the models used, and data from July 2008 to July 2019 are used to evaluate the models. The economic growth data consists of quarterly observations of real US GDP (economic) growth from January 1982 to July 2019. The CLI data consists of monthly observations of the Composite Leading Index from June of 1961 to July of 2019. These are time series data.
+Data from 1982 are used to make lags of variables and the first differences of the variables, data from 1983 to April 2008 are used to estimate the models used, and data from July 2008 to October 2019 are used to evaluate the models. The economic growth data consists of quarterly observations of real US GDP (economic) growth from January 1982 to October 2019. The CLI data consists of monthly observations of the Composite Leading Index from June of 1961 to December of 2019.
 
-This project undertook the following key steps. First, the data were cleaned and explored. Second, the data are tested for stationarity, since time series data should be tested for stationarity. Stationarity means that the "statistical properties are constant over time", and this is required to do much statistical analysis (Nau, 2019). Third, the models were created. Fourth, the models were evaluated with accuracy and F1 score used as the metrics to judge model effectiveness. It is found that the logistic regression is the best out of these models for predicting economic growth or contraction. This model has an accuracy of 93.3% during the test period, which is quite good, and a F1 score of .727. This model outperforms a simple strategy of predicting economic growth for every period, which would give an accuracy of 84.4% for the test period. The other model results were, in order of effectiveness, the random forest model (accuracy 84.4%, F1 score 0), the ensemble model (accuracy 84.4%, F1 score 0), and the knn model (accuracy 82.2%, F1 score 0).
+This project undertook the following key steps. First, the data were cleaned and explored. Second, the data are tested for stationarity, since they are time series data. Stationarity means that the "statistical properties are constant over time", and this is required to do much statistical analysis (Nau, 2019). Third, the models were created. Fourth, the models were evaluated with accuracy and F1 score used as the metrics to judge model effectiveness. It is found that the logistic regression is the best out of these models for predicting economic growth or contraction. This model has an accuracy of 93.5% during the test period, which is quite good, and a F1 score of .727. This model outperforms a simple strategy of predicting economic growth for every period, which would give an accuracy of 84.8% for the test period. The other model results were the regularized logistic model (accuracy 84.8%, F1 score 0), random forest model (accuracy 84.8%, F1 score 0), the ensemble model (accuracy 84.8%, F1 score 0), and the knn model (accuracy 84.8%, F1 score 0).
 
 
 **Methods and Analysis:**
@@ -153,17 +153,12 @@ Finally, the datasets are combined into one dataset. A variable called gdp_impr 
 ```{r combined data}
 #combine datasets
 combined_data <- real_gdp_growth %>%    #start with gdp growth dataset
+  filter(DATE >= '1982-01-01') %>%
   mutate(MONTH = CLI_filtered$MONTH) %>%    #add month variable
   mutate(CLI = CLI_filtered$cli) %>%    #add CLI variable
   mutate(real_gdp_growth = real_gdp_growth) %>%    #create col with shorter name
   mutate(gdp_impr = factor(ifelse(real_gdp_growth > 0, 1, 0)))   #create y/n dependent var.
 ```
-
-After creating the combined dataset, the train and test sets are created. Again, 1983 up to July 2008 makes up the training set, and July 2008 and after is the test set. 
-
-Next, a double check that the sample sizes are large enough is taken now that the data is cleaned. The total sample size is 147, and the sample size of the training set is 102. While this is not large, it should be large enough to use the logistic regression, knn algorithm, and random forest algorithm. The learning curve for a knn model was seen to increase slowly over 100 training samples in a genetics study with many features (Shao, Fan, Cheng, 2013). In addition, a general rule-of-thumb is to use at least 10 samples per independent variable (Peduzzi et al, 1996). However, a larger sample size would likely allow better results since periods of contraction may be more or less common in the training set than in the test set, but data was only available from 1982.
-
-Next, the real GDP growth and CLI data (training set only) are plotted to see how the variables change over time and the relationship between the two (Figure 4).
 
 ```{r filter data}
 #create train and test data
@@ -171,12 +166,12 @@ combined_data_train <- combined_data %>% filter(DATE >= "1983-01-01" & DATE < "2
 combined_data_test <- combined_data %>% filter(DATE >= "2008-07-01")
 ```
 
-```{r sample size probit model}
-#sample size min for probit model
-k <- 2 #number of independent variables
-p <- sum(combined_data_train$gdp_impr == 0)/nrow(combined_data_train)
-min_n <- 10*k/p
-```
+After creating the combined dataset, the train and test sets are created. Again, 1983 up to July 2008 makes up the training set, and July 2008 and after is the test set. 
+
+Next, a double check that the sample sizes are large enough is taken now that the data is cleaned. The total sample size is `r nrow(combined_data)`, and the sample size of the training set is `r nrow(combined_data_test)`. While this is not large, it should be large enough to use the logistic regression, knn algorithm, and random forest algorithm. The learning curve for a knn model was seen to increase slowly over 100 training samples in a genetics study with many features (Shao, Fan, Cheng, 2013). In addition, a general rule-of-thumb is to use at least 10 samples per independent variable (Peduzzi et al, 1996). However, a larger sample size would likely allow better results since periods of contraction may be more or less common in the training set than in the test set, but data was only available from 1982.
+
+Next, the real GDP growth and CLI data (training set only) are plotted to see how the variables change over time and the relationship between the two (Figure 4).
+
 
 ```{r plot}
 #plot real gdp growth and CLI for train data
@@ -208,7 +203,7 @@ After doing the exploratory data analysis, I next test for stationarity for both
 Test for Stationarity - Augmented Dickey-Fuller (ADF) Test for Real GDP Growth:
 
 The Augmented Dickey-Fuller test is used to test for stationarity of a data series. To do this test, one regresses the first difference (delta) of the dependent variable on its lagged value (the value of that variable one time period prior to the current one) and also on a certain number of lags of the first difference of the independent variable (van Dijk, Franses, Heij, 2019). The number of lags of the independent variable to test can be determined with the following rule of thumb: Set a maximum value for the lag length, and estimate the test regression with that lag length. If the the absolute value of the last lagged value in the test regression is less than 1.6, then reduce the lag length by one and retest (Ng and Perron, 2001.).
-\newpage
+
 Model for ADF test:
 delta_real_gdp_growth = alpha_adf_1 + rho*real_gdp_growth_lag +
 \newline
@@ -256,7 +251,7 @@ reg_gdp_adf_lags1234summ
 
 Conclusion: ADF test should be repeated with lag length of 3, as the absolute value of the t statistic of the last lagged value is less than 1.6.
 
-\newpage
+
 ADF test with lags 1-3 of delta_real_gdp_growth:
 
 ```{r adf test gdp 3 lags, include=FALSE}
@@ -268,7 +263,7 @@ reg_gdp_adf_lags123summ
 ```
 
 Conclusion: The ADF test should be repeated with lag length 2, as the absolute value of the t statistic of the last lagged value is less than 1.6.
-\newpage
+
 ADF test with lags 1 and 2 of delta_real_gdp_growth:
 
 ```{r adf test gdp 2 lags, include=FALSE}
@@ -280,7 +275,7 @@ reg_gdp_adf_lags12summ
 ```
 
 Conclusion: The ADF test should be repeated with lag length 2, as the absolute value of the t statistic of the last lagged value is less than 1.6.
-\newpage
+
 ADF test with lag 1 of delta_real_gdp_growth:
 
 ```{r adf test gdp lag 1, include=FALSE}
@@ -300,7 +295,7 @@ Model for ADF test:
 delta_CLI = alpha_adf_2 + rho1*CLI_lag + beta_adf_1*delta_CLI_lag + beta_adf_2*delta_CLI_lag_2 + beta_adf_3*delta_CLI_lag3 + beta_adf_4*delta_CLI_lag4 + epsilon_adf_2
 
 Note: Starting with ADF test for 4 lags of delta_CLI, since it is most commonly used as a predictor of economic conditions in the following 3 quarters. I will test with 1 extra quarter to be safe.
-\newpage
+
 ADF test with lags 1-4 of delta_CLI:
 
 ```{r make cli lags and delta cli lags}
@@ -363,9 +358,9 @@ reg_CLI_lags1234summ <- summary(reg_CLI_lags1234)
 reg_CLI_lags1234summ
 ```
 
-Conclusion: ADF test should be repeated with larger lag length, as the absolute value of the t statistic of the last lagged value is greater than 1.6.
+Conclusion: ADF test should be repeated with larger lag length, as the absolute value of the t statistic of the last lagged value is greater than 1.6, so a maximum lag length for the ADF test has not yet been found.
 
-\newpage
+
 ADF test with lags 1-8 of delta_CLI:
 
 ```{r}
@@ -392,7 +387,7 @@ combined_data_train_ts <- combined_data_train %>% ts()
 ```
 
 
-```{r adf test CLI 8 lags, include=FALSE}
+```{r adf test CLI 8 lags, include=TRUE}
 #adf test cli 8 lags
 reg_CLI_8lags <- dynlm(delta_CLI~CLI_lag + delta_CLI_lag + delta_CLI_lag2 + delta_CLI_lag3 + delta_CLI_lag4 + delta_CLI_lag5 + delta_CLI_lag6 + delta_CLI_lag7 + delta_CLI_lag8, data = combined_data_train_ts)
 #create summary
@@ -402,7 +397,7 @@ reg_CLI_8lagssumm
 
 
 Conclusion: The ADF test should be repeated with lag length 7, as the absolute value of the t statistic of the last lagged value is less than 1.6.
-\newpage
+
 ADF test with lags 1-7 of delta_CLI:
 
 ```{r adf test CLI 7 lags, include=FALSE}
@@ -414,7 +409,7 @@ reg_CLI_7lagssumm
 ```
 
 Conclusion: The ADF test should be repeated with lag length 6, as the absolute value of the t statistic of the last lagged value is less than 1.6.
-\newpage
+
 ADF test with lags 1-6 of delta_CLI:
 
 ```{r adf test CLI 6 lags, include=FALSE}
@@ -426,7 +421,7 @@ reg_CLI_6lagssumm
 ```
 
 Conclusion: The ADF test should be repeated with lag length 5, as the absolute value of the t statistic of the last lagged value is less than 1.6.
-\newpage
+
 ADF test with lags 1-5 of delta_CLI:
 
 ```{r adf test CLI 5 lags, include=FALSE}
@@ -439,40 +434,38 @@ reg_CLI_5lagssumm
 
 The t stat of CLI_lag is `r round(reg_CLI_5lagssumm$coefficients[2,3], 3)`, which is below the critical value of -2.9, so we reject the null hypothesis of non-stationarity. CLI is stationary.
 
-In order to explore the number of lags to test for real GDP growth, a correlogram of the  ACFs was made (Figure 3). It can be seen that the 1-4 lagged values of real GDP growth are correlated with its current level.
+In order to explore the number of lags to test for real GDP growth, a correlogram of the  ACFs was made (Figure 6). It can be seen that the 1-4 lagged values of real GDP growth are correlated with its current level.
 
 
 ```{r acf gdp}
-acfs_gdp <- acf(real_gdp_growth$real_gdp_growth, lag.max = 12, na.action = na.pass, 
-            main = "Figure 3: ACFs of Lags of Real GDP Growth")
+acfs_gdp <- acf(combined_data_train_ts[, 'real_gdp_growth'], lag.max = 12, na.action = na.pass, main = "Figure 6: ACFs of Lags of Real GDP Growth")
 ```
 
-A correlogram of the PACF for real GDP growth was also generated (Figure 4). It can be seen that the first and second lags are correlated with its current level. The 11th lag is also significant, but this may be an artifact of the data rather than real causation because none of the other lags after lag 2 are significant.
+A correlogram of the PACF for real GDP growth was also generated (Figure 7). It can be seen that the first and second lags are correlated with its current level. The 11th lag is also significant, but this may be an artifact of the data rather than real causation because none of the other lags after lag 2 are significant.
 
 ```{r pacfs gdp}
-pacfs_gdp <- pacf(real_gdp_growth$real_gdp_growth, lag.max = 12, na.action = na.pass, 
-              main = "Figure 4: PACFs of Lags of Real GDP Growth")
+pacfs_gdp <- pacf(combined_data_train_ts[, 'real_gdp_growth'], lag.max = 12, na.action = na.pass, main = "Figure 7: PACFs of Lags of Real GDP Growth")
 ```
 
-In order to explore the number of lags to test for the CLI, correlograms of the ACFs and PACFs were made (Figure 5, Figure 6). From the ACF correlogram, it can be seen that the 1-11 lagged values of the CLI are correlated with its current level. From the PACF correlogram, we can see that only the once and twice lagged values are signficant.
+In order to explore the number of lags to test for the CLI, correlograms of the ACFs and PACFs were made (Figure 8, Figure 9). From the ACF correlogram, it can be seen that the 1-4 lagged values of the CLI are correlated with its current level. From the PACF correlogram, we can see that only the once and twice lagged values are signficant.
 
 ```{r acfs cli}
-acfs_cli <- acf(cli$cli, lag.max = 12, na.action = na.pass, 
-                main = "Figure 5: ACFs of Lags of CLI")
+acfs_cli <- acf(combined_data_train_ts[, 'CLI'], lag.max = 12, na.action = na.pass, 
+                main = "Figure 8: ACFs of Lags of CLI")
 ```
 
 ```{r pacfs cli}
-pacfs_cli <- pacf(cli$cli, lag.max = 12, na.action = na.pass,
-                  main = "Figure 6: PACFs of Lags of CLI")
+pacfs_cli <- pacf(combined_data_train_ts[, 'CLI'], lag.max = 12, na.action = na.pass,
+                  main = "Figure 9: PACFs of Lags of CLI")
 ```
 
 
-Next, just the CLI time series is plotted, in order to get a better visual on the series and to see if there might be seasonality. As the amplitude-adjusted CLI is calculated from smoothed component series, there shouldn't be seasonality, however, it can be a good exercise to check. A plot of the CLI by month is also plotted to see if there is quarterly seasonality (Figure 8). As can be seen from the plot, there is no clear seasonality in the data.
+Next, just the CLI time series is plotted, in order to get a better visual on the series and to see if there might be seasonality (Figure 10). As the amplitude-adjusted CLI is calculated from smoothed component series, there shouldn't be seasonality, however, it can be a good exercise to check. A plot of the CLI by quarter is also plotted to see if there is quarterly seasonality (Figure 11). As can be seen from the plot, there is no clear seasonality in the data.
 
 ```{r cli plot}
 combined_data_train %>% ggplot(aes(x = DATE, y = CLI)) +
   geom_line() +
-  ggtitle("Figure 7: CLI")
+  ggtitle("Figure 10: CLI")
 ```
 
 ```{r monthly seasonality plot}
@@ -480,11 +473,10 @@ ts_cli <- ts(combined_data_train$CLI,
              start = min(year(combined_data_train$DATE)),
               end = max(year(combined_data_train$DATE)),
               frequency = 4)
-ggseasonplot(ts_cli, year.labels = TRUE, continuous = TRUE, main = "Figure 8: Seasonal Plot of CLI")
+ggseasonplot(ts_cli, year.labels = TRUE, continuous = TRUE, main = "Figure 11: Seasonal Plot of CLI")
 ```
 Model Creation:
 \newline
-
 
 First, I created a logistic regression model for lags 1, 2, and 3 of the CLI and also lags 1, 2, and 3 of GDP growth. Although the PACF of lag 2 of real GDP growth was not significant, it is reasonable based on economic theory that the economic growth 3 quarters in the past may affect the present value. However, the algorithm did not converge when lag 2 of GDP growth was included, so this was excluded. Since we will also be obtaining predictions from 2 other algorithms and creating an ensemble prediction, I think the exclusion of this lag 2 variable will still obtain a good prediction.
 
@@ -523,7 +515,7 @@ x <- model.matrix(gdp_impr ~ ., small_data_train)[, -1]
 y <- ifelse(combined_data_train$gdp_impr == "1", 1, 0) #outcome
 ```
 
-```{r reg logit no wf validation}
+```{r reg logit no wf validation, include=FALSE}
 k <- 0
 preds <- rep(NA, nrow(combined_data_train) - k - 1)
 accuracy <- rep(NA, nrow(combined_data_train) - k - 1)
@@ -548,7 +540,7 @@ y_hat_reglogit <- ifelse(p_hat_reglogit > 0.5, 1, 0)
 mean(y_hat_reglogit == combined_data_test$gdp_impr)
 ```
 
-```{r wf validation reg logit}
+```{r wf validation reg logit, include = FALSE}
 # small_data <- combined_data %>%
 #  select(real_gdp_growth_lag_stnd,
 #        real_gdp_growth_lag2_stnd, 
@@ -574,7 +566,7 @@ mean(y_hat_reglogit == combined_data_test$gdp_impr)
 ```
 
 
-```{r cross validation regularized logit model}
+```{r cross validation regularized logit model, include = FALSE}
 # #test glmnet function with basic wf validation - creates a regularized logistic regression model using a walk forward cross validation process but doesn't optimize lambda
 # set.seed(1)
 # for (i in 1:(nrow(combined_data_train) - k)) {
@@ -607,7 +599,7 @@ mean(y_hat_reglogit == combined_data_test$gdp_impr)
 ```
 
 
-A knn algorithm is then created to model economic growth or contraction, and this model is next optimized for the best value of k. Values between 2 and 25 were tested, and a value of 2 was found to be the optimal k. Finally, a random forest model is created. In order to get an idea of how many trees to have in my random forest model, I generated a plot of the model, from which we can see that the algorithm converges after no more than 100 trees (Figure 6). The random forest algorithm with 100 trees is then optimized for the best value of mtry. Mtry values between 1 and 6 were tested, and the optimal value was found to be 1.
+A knn algorithm is then created to model economic growth or contraction, and this model is next optimized for the best value of k. Values between 3 and 25 were tested, and a value of 3 was found to be the optimal k. Finally, a random forest model is created. In order to get an idea of how many trees to have in my random forest model, I generated a plot of the model, from which we can see that the algorithm converges after no more than 100 trees (Figure 12). The random forest algorithm with 100 trees is then optimized for the best value of mtry. Mtry values between 1 and 6 were tested, and the optimal value was found to be 1.
 
 ```{r make knn model}
 #train knn algorithm on training set
@@ -633,7 +625,7 @@ set.seed(1)
 rf_model_initial <- randomForest(gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + real_gdp_growth_lag + real_gdp_growth_lag2 + real_gdp_growth_lag3, data = combined_data_train)
 
 #to see how the model varies with a different number of trees
-plot(rf_model_initial, main = "Figure 6: Initial RF Model Error vs. Number of Trees")
+plot(rf_model_initial, main = "Figure 12: Initial RF Model Error vs. Number of Trees")
 ```
 
 
@@ -655,11 +647,9 @@ rf_model <- randomForest(gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + real_gdp_gro
 
 
 **Results:**
-After testing the performance against the test set for each model, we can see that logistic regression is the best-performing model, with an accuracy of 93.3% and a F1 score of 0.727. This model had perfect specificity, while having the best sensitivity at 0.57, with the positive class being a "0", or economic contraction for all models.
+After testing the performance against the test set for each model, we can see that logistic regression is the best-performing model, with an accuracy of 93.5% and a F1 score of 0.727. This model had perfect specificity, while having the best sensitivity at 0.57, with the positive class being a "0", or economic contraction for all models.
 
-The second-best performing models were the ensemble prediction and the random forest models, with an accuracy of 84.4% and an F1 score of 0. It is interesting to note that these models did not predict a single period of contraction and had a sensitivity of 0, so there is room for improvement. In order to give a tiebreaker between these two models, I would rank the random forest model over the ensemble, as it gives the same results but is much simpler than the complex ensemble model.
-
-The knn model was the worst-performing model, with an accuracy of 82.2% and a F1 score of 0. This model had good specificity (.947) but a sensitivity of 0, so again there is room for improvement.
+The other models had an accuracy of 84.8% and an F1 score of 0, having predicted economic growth for all time periods. Thse models had a sensitivity of 0., so there is room for improvement.
 
 ```{r logit model test set predictions}
 #logit model test set predictions
@@ -672,8 +662,10 @@ y_hat_logistic_all <- ifelse(p_hat_logistic_all > 0.5, 1, 0)
 
 ```{r knn model test set predictions}
 #test to see if any of the normalized data points are outside of 0-1 range
-combined_data_test %>%  filter(real_gdp_growth_lag_nml > 1 | real_gdp_growth_lag_nml < 0 |
-        real_gdp_growth_lag2_nml > 1 | real_gdp_growth_lag2_nml < 0 | real_gdp_growth_lag3_nml > 1 | real_gdp_growth_lag3_nml < 0 |
+test_nml <- combined_data_test %>%  
+  filter(real_gdp_growth_lag_nml > 1 | real_gdp_growth_lag_nml < 0 |
+        real_gdp_growth_lag2_nml > 1 | real_gdp_growth_lag2_nml < 0 |
+        real_gdp_growth_lag3_nml > 1 | real_gdp_growth_lag3_nml < 0 |
           CLI_lag_nml > 1 | CLI_lag_nml < 0 |
           CLI_lag2_nml > 1 | CLI_lag2_nml < 0 |
           CLI_lag3_nml > 1 | CLI_lag3_nml < 0)
@@ -722,6 +714,15 @@ confusionMatrix(factor(y_hat_logistic_all), reference = factor(combined_data_tes
 #calculate f1 score
 f1_logit <- F_meas(factor(y_hat_logistic_all), factor(combined_data_test$gdp_impr))
 ```
+
+\newpage
+Regularized Logistic Model:
+```{r confusion matrix regularized logit model}
+confusionMatrix(factor(y_hat_reglogit), reference = factor(combined_data_test$gdp_impr))
+#calculate f1 score - code won't run since score is 0, because no correct positive predictions
+#f1_reg_logit <- F_meas(factor(y_hat_knn), factor(combined_data_test$gdp_impr))
+```
+
 \newpage
 KNN Model: 
 ```{r confusion matrix knn model}
@@ -749,7 +750,7 @@ confusionMatrix(factor(y_hat_ensemble), reference = factor(combined_data_test$gd
 \newpage
 Below are shown plots of the predictions against real economic outcomes for each model.
 \newline
-Logistic Regression (Figure 7):
+Logistic Regression (Figure 13):
 \newline
 ```{r plot logistic}
 #add predictions to test set
@@ -764,92 +765,115 @@ combined_data_test <- combined_data_test %>%
 combined_data_test %>% ggplot(aes(x = DATE)) +
   geom_point(aes(y = gdp_impr, color = "gdp_impr")) +
   geom_point(aes(y = logit, color = "logit")) +
-  ggtitle("Figure 7: Logit Model Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
+  ggtitle("Figure 13: Logit Model Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
 ```
-
+\newpage
+Regularized Logistic Regression (Figure 14): \newline
 ```{r plot regularized logistic regression}
 combined_data_test %>% ggplot(aes(x = DATE)) +
   geom_point(aes(y = gdp_impr, color = "gdp_impr")) +
   geom_point(aes(y = reg_logit, color = "reg_logit")) +
-  ggtitle("Figure 8: Regularized Logit Model Predictions vs. Real Economic Outcomes", 
+  ggtitle("Figure 14: Regularized Logit Model Predictions vs. Real Economic Outcomes", 
           subtitle = "Red Indicates a Miss")
 ```
 
 
 
 \newpage
-KNN Model (Figure 8):
+KNN Model (Figure 15):
 \newline
 ```{r plot knn}
 #plot knn model vs real outcomes
 combined_data_test %>% ggplot(aes(x = DATE)) +
   geom_point(aes(y = gdp_impr, color = "gdp_impr")) +
   geom_point(aes(y = knn, color = "knn")) +
-  ggtitle("Figure 8: KNN Model Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
+  ggtitle("Figure 15: KNN Model Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
 ```
 \newpage
-Random Forest (Figure 9):
+Random Forest (Figure 16):
 \newline
 ```{r plot rf}
 #plot rf model vs real outcomes
 combined_data_test %>% ggplot(aes(x = DATE)) +
   geom_point(aes(y = gdp_impr, color = "gdp_impr")) +
   geom_point(aes(y = rf, color = "rf")) +
-  ggtitle("Figure 9: Random Forest Model Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
+  ggtitle("Figure 16: Random Forest Model Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
 ```
 \newpage
-Ensemble (Figure 10):
+Ensemble (Figure 17):
 \newline
 ```{r plot ensemble}
 #plot ensemble model vs real outcomes
 combined_data_test %>% ggplot(aes(x = DATE)) +
   geom_point(aes(y = gdp_impr, color = gdp_impr)) +
   geom_point(aes(y = ensemble, color = "ensemble")) +
-  ggtitle("Figure 10: Ensemble Model Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
+  ggtitle("Figure 17: Ensemble Model Predictions vs. Real Economic Outcomes", subtitle = "Red Indicates a Miss")
 ```
 
 ```{r mean of gdp_impr}
 #calculate mean gdp_impr for baseline comparison
-combined_data_test <- combined_data_test %>%
-  mutate(mean_test_gdp_impr = mean(as.numeric(gdp_impr)))
+mean_gdp_impr <- combined_data_test %>%
+  mutate(gdp_impr = as.numeric(gdp_impr)) %>%
+  mutate(gdp_impr = ifelse(gdp_impr == 2, 1, 0)) %>%
+  .$gdp_impr %>%
+  mean()
 ```
+
+```{r comparison to previous prediction, include=FALSE}
+since_original <- combined_data_test %>%
+  filter(DATE > '2019-07-01')
+since_original_acc <- mean(since_original$logit == since_original$gdp_impr)
+```
+
 
 **Conclusion:**
 
-Models based on the lagged values of CLI and real GDP growth were developed using the training portion of the  dataset, and these were tested on the test set. The best-performing model was found to have an accuracy of 0.933 and an F1 score of .73. This indicates that the model did a good job of predicting whether or not there would be economic growth from July 2008 - July 2019. This is better than a strategy of simply assuming that there will be economic growth in every period, which would yield an accuracy of 84.4%.
+Models based on the lagged values of CLI and real GDP growth were developed using the training portion of the  dataset, and these were tested on the test set. The best-performing model was found to have an accuracy of `r round(100*mean(y_hat_logistic_all == combined_data_test$gdp_impr), 3)` % and an F1 score of `r round(f1_logit, 3)`. This indicates that the model did a good job of predicting whether or not there would be economic growth from July 2008 - October 2019. This is better than a strategy of simply assuming that there will be economic growth in every period, which would yield an accuracy of `r round(100*mean_gdp_impr, 3)`%.
 
-While the model accuracies are acceptable, there are limitations to these models. The logistic regression model did not converge when lag 2 of real GDP growth was included in the model, and while the logistic regression still performed very well, it would be interesting to think about what the results might be if this variable had been included. A potential area for future work involves using a regularized logistic regression model instead in order to prevent overfitting. Another limitation of this research was the relatively poor accuracy of the knn model on the test set, which may have been due to overtraining since I selected a low value of k. I selected a low value of k in order to be able to detect economic contraction, which is relatively uncommon. However, a minimum value of 3 instead of 2 may give better results on the test set as an area for future research. The random forest model also was not as accurate as I hoped, and the F1 scores of both the random forest model and the knn model were zero, so there is further research to be done with these models on a larger data set.
+While the model accuracies are acceptable, there are limitations to these models. The logistic regression model did not converge when lag 2 of real GDP growth was included in the model, and while the logistic regression still performed very well, it would be interesting to think about what the results might be if this variable had been included. The regularized logistic regression, the random forest model, and the knn model failed to predict any periods of contraction, so they were not as sensitive or accurate as I hoped. The F1 scores of these models were zero, so there is further research to be done with these models on a larger data set.
 \newpage
 **References:**
 
-Ben Hamner, and Michael Frasco. Metrics: Evaluation Metrics for Machine Learning (version R package version 0.1.4), 2018. https://CRAN.R-project.org/package=Metrics.
+Ben Hamner, and Michael Frasco. Metrics: Evaluation Metrics for Machine Learning (version 0.1.4), 2018. https://CRAN.R-project.org/package=Metrics.
 
 “Composite Leading Indicators (CLI) Frequently Asked Questions (FAQs).” OECD, 2019.
+
 Dijk, Dick van, Philip Hans Franses, and Christiaan Heij. “Lecture 6.3 on Time Series: Specification and Estimation.” n.d.
 
-Dowle, Matt, and Arun Srinivasan. Data.Table: Extension of “Data.Frame” (version R   package version 1.12.4), 2019. https://CRAN.R-project.org/package=data.table.
+Friedman, Jerome, Trevor Hastie, and Robert Tibshirani. “Reguarlization Paths for Generalized Linear Models via Coordinate Descent.” Journal of Statistical Software 33, no. 1 (2010): 1–22.
 
 Grolemund, Garrett, and Hadley Wickham. “Dates and Times Made Easy with Lubridate.” Journal of Open Source Software 40, no. 3 (2011): 1–25.
 
-Hess, Florian. Using R for Introductory Econometrics, 2016. http://www.URfIE.net.
+Heiss, Florian. Using R for Introductory Econometrics, 2016. http://www.URfIE.net.
+
+Hyndman, R, G Athanasopoulos, C Bergmeir, G Caceres, L Chhay, M O’Hara-Wild, F Petropoulos, S Razbash, E Wang, and F Yasmeen. _forecast: Forecasting Functions for Time Series and Linear Models_ (version R package version 8.11), 2020. http://pkg.robjhyndman.com/forecast.
+Hyndman, RJ, and Y Khandakar. “Automatic Time Series Forecasting: The Forecast Package for R.” Journal of Statistical Software 26, no. 3 (2008): 1–22.
 
 Irizarry, Rafael. Knn, 2019.
 ———. Logistic Regression, 2019.
 ———. Overtraining and Oversmoothing, n.d.
 ———. Random Forests, 2019.
 
-Kuhn, Max. Caret: Classification and Regression Training (version R   package version 6.0-84), 2019. https://CRAN.R-project.org/package=caret.
+James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani. An Introduction to Statistical Learning. 7th ed. Springer, 2013.
+
+Kuhn, Max. Caret: Classification and Regression Training (version R package version 6.0-85), 2020. https://CRAN.R-project.org/package=caret.
 
 Liaw, A, and M Weiner. “Classification and Regression by Random Forest.” R News, 2002.
+Meyer, David, Evgenia Dimitriadou, Kurt Hornik, Andreas Weingessel, and Friedrich Leisch. E1071: Misc Functions of the Department of Statistics, Probability Theory Group (Formerly: E1071) (version R package version 1.7-3), 2019. https://CRAN.R-project.org/package=e1071.
 
-Nau, Robert. “Stationarity and Differencing,” 2019. https://people.duke.edu/~rnau/411diff.htm.
+Nau, Robert. “Stationarity and Differencing,” 2019.
+https://people.duke.edu/~rnau/411diff.htm.
 
 Ng, Serena, and Pierre Perron. “Lag Length Selection and the Construction of Unit Root Tests with Good Size and Power.” Econometrica 69, no. 6 (2001): 1519–54.
 
+Organization for Economic Co-operation and Development. “Leading Indicators OECD: Leading Indicators: CLI: Amplitude-Adjusted for OECD - Total  [OECDLOLITOAASTSAM].” https://fred.stlouisfed.org/series/OECDLOLITOAASTSAM, n.d. Accessed February 19, 2020.
+
+Peduzzi et al., Peter. “A Simulation Study of the Number of Events per Variable in Logistic Regression Analysis.” Journal of Clinical Epidemiology 49, no. 12 (n.d.): 1373–79.
+
 R Core Team. R: A Language and Environment for Statistical Computing. Vienna, Austria, 2019. https://www.R-project.org/.
 
-Sarkar, Deepayan, and Felix Andrews. LatticeExtra: Extra Graphical Utilities Based on Lattice (version R package version 0.6-29), 2019.
-https://CRAN.R-project.org/package=latticeExtra.
+Sarkar, Deepayan, and Felix Andrews. LatticeExtra: Extra Graphical Utilities Based on Lattice (version R package version 0.6-29), 2019. https://CRAN.R-project.org/package=latticeExtra.
+Shao, L, X Fan, N Cheng, L Wu, and Y Cheng. “Determination of Minimum Training Sample Size for Microarray-Based Cancer Outcome Prediction-An Empirical Assessment.” PLoS ONE 8, no. 7 (2013). https://doi.org/10.1371/journal.pone.0068579.
 
 Wickham et al. “Welcome to the Tidyverse.” Journal of Open Source Software 4, no. 43 (2019): 1686.
 
@@ -858,4 +882,5 @@ Wickham, Hadley, Jim Hester, and Romain Francois. Readr: Read Rectangular Text D
 Zeileis, A. Dynlm: Dynamic Linear Regression (version 0.3-6), 2019. https://CRAN.R-project.org/package=dynlm.
 
 Zulkifli, Hafidz. “Multivariate Time Series Modeling Using Random Forest.” Towards Data Science, March 31, 2019. https://towardsdatascience.com/multivariate-time-series-forecasting-using-random-forest-2372f3ecbad1.
+
 

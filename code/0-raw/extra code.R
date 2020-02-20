@@ -9,6 +9,13 @@
 #logistic_model_caret_all <- train(gdp_impr ~ CLI_lag + CLI_lag2 + CLI_lag3 + #real_gdp_growth_lag + real_gdp_growth_lag2 + real_gdp_growth_lag3, method = "glm", data = #combined_data_train)
 #```
 
+
+#sample size min for probit model
+k <- 2 #number of independent variables
+p <- sum(combined_data_train$gdp_impr == 0)/nrow(combined_data_train)
+min_n <- 10*k/p
+
+
 ```{r}
 p_hat_logistic_cli <- predict(logistic_model_cli, newdata = combined_data_test, type = "response")
 y_hat_logistic_cli <- ifelse(p_hat_logistic_cli >= 0.5, 1, 0)
